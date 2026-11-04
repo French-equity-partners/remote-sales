@@ -1,0 +1,448 @@
+<title>Remote Sales Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: a phone-first tracker. Sticky pace strip on top, three views (Today, Month, Plan) switched by tabs. */
+:root{
+  --bg:#F2F5F7; --surface:#FFFFFF; --sunk:#E7ECF0; --line:#D5DDE3;
+  --ink:#16222E; --muted:#5A6977; --accent:#C2581C; --accent-ink:#FFFFFF;
+  --good:#1D7F55; --warn:#A86B12; --bad:#B73A27;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E151C; --surface:#16202A; --sunk:#1D2935; --line:#2A3846;
+  --ink:#E4ECF2; --muted:#93A3B2; --accent:#F0874A; --accent-ink:#1A0E06;
+  --good:#4CC28E; --warn:#E3A84A; --bad:#F07762; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#16202A; --sunk:#1D2935; --line:#2A3846;
+  --ink:#E4ECF2; --muted:#93A3B2; --accent:#F0874A; --accent-ink:#1A0E06;
+  --good:#4CC28E; --warn:#E3A84A; --bad:#F07762; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{padding-block:12px 0}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-stretch:80%;font-weight:800;font-size:24px;letter-spacing:.01em;margin:0;text-wrap:balance}
+.month{font-size:13px;color:var(--muted)}
+.pace{margin-top:10px;display:grid;gap:6px}
+.pace-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.pace-row b{color:var(--ink);font-family:var(--display);font-stretch:85%;font-size:17px}
+.bar{position:relative;height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:5px}
+.bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.55}
+nav.tabs{display:flex;gap:4px;margin-top:10px}
+nav.tabs a{flex:1;text-align:center;padding:10px 6px 11px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;border-bottom:3px solid transparent}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{font-size:13px;color:var(--muted);margin:14px 0 0}
+.note.warn{color:var(--warn)}
+h2{font-family:var(--display);font-stretch:85%;font-weight:700;font-size:19px;margin:22px 0 10px;text-wrap:balance}
+.label{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.daybar{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.daybar input[type=date]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+button{font:inherit;cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 12px}
+.srcs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-top:12px;scrollbar-width:thin}
+.srcs button{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13.5px;display:flex;gap:6px;align-items:center}
+.srcs button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.srcs button small{font-size:11.5px;opacity:.75}
+.stages{display:grid;gap:8px;margin-top:12px}
+.stage{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stage .nm{font-weight:600}
+.stage .hint{font-size:12.5px;color:var(--muted)}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font-size:20px;line-height:1}
+.step button.plus{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.step input{width:72px;height:40px;text-align:center;font-family:var(--display);font-stretch:85%;font-weight:700;font-size:20px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.daytotal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile b{display:block;font-family:var(--display);font-stretch:85%;font-weight:700;font-size:22px}
+.tile span{font-size:12px;color:var(--muted)}
+.funnel{display:grid;gap:8px}
+.fn{display:grid;grid-template-columns:110px 1fr 64px;gap:10px;align-items:center;font-size:14px}
+.fn .track{height:22px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.fn .track i{display:block;height:100%;background:var(--accent);opacity:.85;border-radius:5px;min-width:2px}
+.fn em{font-style:normal;text-align:right;font-family:var(--display);font-stretch:85%;font-weight:700}
+.rate{font-size:12px;color:var(--muted);padding-left:120px;margin-top:-4px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+tfoot td{font-weight:700}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.chip.good{color:var(--good)} .chip.warn{color:var(--warn)} .chip.bad{color:var(--bad)} .chip.mute{color:var(--muted)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.form label{display:grid;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+.form input,.form select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+.need{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.need .tile b{font-size:26px}
+.need .tile small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.split{display:grid;gap:8px}
+.split .row{display:grid;grid-template-columns:130px 1fr 92px;gap:10px;align-items:center;font-size:14px}
+.split .row input{width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface);color:var(--ink);text-align:right}
+.dual{position:relative;height:16px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.dual i{position:absolute;inset:0 auto 0 0;background:var(--accent);opacity:.85}
+.dual u{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+p.body{max-width:65ch;margin:8px 0}
+ul.tips{margin:8px 0 0;padding-left:18px;max-width:65ch}
+ul.tips li{margin:4px 0}
+.status{font-size:12px;color:var(--muted);min-height:16px;margin-top:6px}
+@media (max-width:480px){ .fn{grid-template-columns:86px 1fr 52px} .rate{padding-left:96px} .split .row{grid-template-columns:96px 1fr 80px} .daytotal{grid-template-columns:repeat(3,1fr)} }
+@media (prefers-reduced-motion:no-preference){ .bar i,.fn .track i,.dual i{transition:width .35s ease} }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Remote Sales Tracker</h1><span class="month" id="monthName"></span></div>
+    <div class="pace">
+      <div class="pace-row"><span>Earned this month <b id="mtd">0</b></span><span>Goal <b id="goalShow">0</b></span><span id="paceChip"></span></div>
+      <div class="bar" aria-hidden="true"><i id="mtdBar" style="width:0"></i><u id="paceMark" style="left:0"></u></div>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a href="#today" data-view="today">Today</a>
+      <a href="#month" data-view="month">Month</a>
+      <a href="#plan" data-view="plan">Plan</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="note" id="loadNote" hidden></p>
+
+  <section id="v-today">
+    <div class="daybar">
+      <button class="ghost" id="prevDay" aria-label="Previous day">‹</button>
+      <input type="date" id="day" aria-label="Day">
+      <button class="ghost" id="nextDay" aria-label="Next day">›</button>
+      <button class="ghost" id="toToday">Today</button>
+    </div>
+    <div class="srcs" id="srcs" role="group" aria-label="Lead source"></div>
+    <div class="stages" id="stages"></div>
+    <div class="status" id="saveStatus" aria-live="polite"></div>
+    <h2>This day, all sources</h2>
+    <div class="daytotal" id="dayTotal"></div>
+  </section>
+
+  <section id="v-month" hidden>
+    <h2>Funnel this month</h2>
+    <div class="panel funnel" id="funnel"></div>
+    <h2>By lead source</h2>
+    <div class="tablewrap"><table id="bySource"></table></div>
+    <p class="note" id="diversity"></p>
+  </section>
+
+  <section id="v-plan" hidden>
+    <h2>Your goal</h2>
+    <div class="panel form">
+      <label for="p_goal">Monthly income goal<input id="p_goal" type="number" min="0" step="100" inputmode="numeric"></label>
+      <label for="p_comm">Commission per close<input id="p_comm" type="number" min="0" step="10" inputmode="numeric"></label>
+      <label for="p_cur">Currency<select id="p_cur"><option value="$">$ US dollar</option><option value="£">£ Pound</option><option value="€">€ Euro</option></select></label>
+      <label for="p_days">Working days a week<select id="p_days"><option value="5">5 (Mon–Fri)</option><option value="6">6 (Mon–Sat)</option></select></label>
+    </div>
+    <h2>Conversion rates</h2>
+    <p class="body">Starting guesses until you have real numbers. Once a stage has 10 or more at the step before it, your own rate this month replaces the guess.</p>
+    <div class="panel form">
+      <label for="p_r1">Contacted → triage %<input id="p_r1" type="number" min="1" max="100" inputmode="numeric"></label>
+      <label for="p_r2">Triage → call booked %<input id="p_r2" type="number" min="1" max="100" inputmode="numeric"></label>
+      <label for="p_r3">Booked → showed %<input id="p_r3" type="number" min="1" max="100" inputmode="numeric"></label>
+      <label for="p_r4">Showed → closed %<input id="p_r4" type="number" min="1" max="100" inputmode="numeric"></label>
+    </div>
+    <div id="rateUse" class="note"></div>
+    <h2>What the goal takes</h2>
+    <div class="need" id="need"></div>
+    <p class="note" id="needNote"></p>
+    <h2>Lead source split</h2>
+    <p class="body">Your target share of closes from each source, against what's happening this month. Aim for at least 3–4 sources with activity so no single one can sink your month.</p>
+    <div class="panel split" id="split"></div>
+    <h2>Daily time split</h2>
+    <ul class="tips">
+      <li><b>Leads flowing:</b> about 5 hours on new leads, 2 hours on referrals, follow-ups and CRM farming.</li>
+      <li><b>Leads drying up:</b> spread the day, about 1 hour on each other source, still an 8-hour day.</li>
+      <li>Keep every source running a little, even in good weeks. Starting one from zero when you need it is slow.</li>
+    </ul>
+    <div class="status" id="planStatus" aria-live="polite"></div>
+    <div id="backup" hidden>
+      <h2>Backup</h2>
+      <p class="body">Your numbers are saved in this browser only. Download a backup now and then, and restore it on a new phone or if you clear your browser.</p>
+      <div class="daybar"><button type="button" class="ghost" id="bkDown">Download backup</button><label class="ghost" for="bkUp" style="cursor:pointer">Restore from backup</label><input type="file" id="bkUp" accept="application/json,.json" hidden></div>
+      <div class="status" id="bkStatus" aria-live="polite"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var SOURCES = [
+    ['provided','Provided leads'],['referral','Referrals'],['outbound','Outbound'],['crm','CRM follow-up'],['social','Social media']
+  ];
+  var STAGES = [
+    ['contacted','Contacted','Dials, DMs, emails that reached someone'],
+    ['triage','Triages','Qualifying conversations held'],
+    ['booked','Calls booked','Sales calls set'],
+    ['showed','Showed','Sales calls that happened'],
+    ['closed','Closed','Deals won'],
+    ['earned','Commission','Earned today, in your currency']
+  ];
+  var DEFAULTS = { goal:5000, commission:300, currency:'$', daysPerWeek:5, r1:40, r2:50, r3:75, r4:40,
+    split:{ provided:60, referral:10, outbound:10, crm:10, social:10 } };
+
+  var days = {};            // date -> doc body
+  var plan = JSON.parse(JSON.stringify(DEFAULTS));
+  var db = null, src = 'provided', view = 'today', canWrite = true;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function iso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function todayIso(){ return iso(new Date()); }
+  function num(v){ v = Number(v); return isFinite(v) && v > 0 ? v : 0; }
+  function money(v){ return plan.currency + Math.round(v).toLocaleString('en-GB'); }
+  function pct(v){ return isFinite(v) ? Math.round(v*100)+'%' : '–'; }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  // ---------- month maths ----------
+  function monthRange(ref){ var d = new Date(ref+'T12:00:00'); return { y:d.getFullYear(), m:d.getMonth(), start:iso(new Date(d.getFullYear(),d.getMonth(),1)), end:iso(new Date(d.getFullYear(),d.getMonth()+1,0)) }; }
+  function isWorkday(d){ var w = d.getDay(); return plan.daysPerWeek == 6 ? w !== 0 : (w !== 0 && w !== 6); }
+  function workdaysIn(y, m, uptoDay){ var n = 0, last = new Date(y, m+1, 0).getDate(); for (var i=1;i<=(uptoDay||last);i++){ if (isWorkday(new Date(y,m,i))) n++; } return n; }
+  function empty(){ var o = {}; STAGES.forEach(function(s){ o[s[0]] = 0; }); return o; }
+  function monthTotals(){
+    var r = monthRange(todayIso()), tot = empty(), by = {};
+    SOURCES.forEach(function(s){ by[s[0]] = empty(); });
+    Object.keys(days).forEach(function(d){
+      if (d < r.start || d > r.end) return;
+      var src = (days[d] && days[d].src) || {};
+      SOURCES.forEach(function(s){ var v = src[s[0]] || {}; STAGES.forEach(function(st){ var x = num(v[st[0]]); by[s[0]][st[0]] += x; tot[st[0]] += x; }); });
+    });
+    return { tot:tot, by:by, r:r };
+  }
+  function rates(tot){
+    function pick(n, d, guess){ return d >= 10 ? { v: n/d, real:true } : { v: guess/100, real:false }; }
+    return { r1: pick(tot.triage, tot.contacted, plan.r1), r2: pick(tot.booked, tot.triage, plan.r2), r3: pick(tot.showed, tot.booked, plan.r3), r4: pick(tot.closed, tot.showed, plan.r4) };
+  }
+
+  // ---------- header ----------
+  function renderHeader(){
+    var t = monthTotals(), r = t.r, now = new Date();
+    $('monthName').textContent = now.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+    var earned = t.tot.earned, goal = num(plan.goal);
+    $('mtd').textContent = money(earned); $('goalShow').textContent = money(goal);
+    var all = workdaysIn(r.y, r.m), done = workdaysIn(r.y, r.m, now.getDate());
+    var expected = all ? goal * done / all : 0;
+    $('mtdBar').style.width = Math.min(100, goal ? earned/goal*100 : 0) + '%';
+    $('paceMark').style.left = 'calc(' + Math.min(100, goal ? expected/goal*100 : 0) + '% - 1px)';
+    var chip = !goal ? '' : earned >= expected ? '<span class="chip good">On pace</span>' : earned >= expected*0.7 ? '<span class="chip warn">Slightly behind</span>' : '<span class="chip bad">Behind pace by '+esc(money(expected-earned))+'</span>';
+    $('paceChip').innerHTML = chip;
+  }
+
+  // ---------- today ----------
+  function dayDoc(d){ return days[d] || { date:d, src:{} }; }
+  function srcLabel(doc, s){ var v = (doc.src||{})[s[0]] || {}, act = STAGES.slice(0,5).reduce(function(n,st){ return n + num(v[st[0]]); }, 0);
+    return esc(s[1])+(act ? ' <small>'+act+'</small>' : ''); }
+  // Updates counts in place, without replacing buttons, so a tap that blurs an input still lands.
+  function refreshDayBits(){
+    var d = $('day').value || todayIso(), doc = dayDoc(d);
+    $('srcs').querySelectorAll('[data-src]').forEach(function(b){ var s = SOURCES.find(function(x){ return x[0] === b.dataset.src; }); b.innerHTML = srcLabel(doc, s); });
+    var tot = empty(); SOURCES.forEach(function(s){ var x = (doc.src||{})[s[0]] || {}; STAGES.forEach(function(st){ tot[st[0]] += num(x[st[0]]); }); });
+    $('dayTotal').innerHTML = [['triage','Triages'],['booked','Booked'],['closed','Closed']].map(function(p){ return '<div class="tile"><b>'+tot[p[0]]+'</b><span>'+p[1]+'</span></div>'; }).join('')
+      + '<div class="tile" style="grid-column:1/-1"><b>'+esc(money(tot.earned))+'</b><span>Commission earned this day</span></div>';
+  }
+  function renderToday(){
+    var d = $('day').value || todayIso(), doc = dayDoc(d);
+    $('srcs').innerHTML = SOURCES.map(function(s){
+      return '<button type="button" data-src="'+s[0]+'" aria-pressed="'+(src===s[0])+'">'+srcLabel(doc, s)+'</button>';
+    }).join('');
+    var v = (doc.src||{})[src] || {};
+    $('stages').innerHTML = STAGES.map(function(st){
+      var val = num(v[st[0]]), money = st[0] === 'earned';
+      return '<div class="stage"><div><div class="nm">'+esc(st[1])+'</div><div class="hint">'+esc(st[2])+'</div></div>'
+        + '<div class="step">'+(money ? '' : '<button type="button" data-dec="'+st[0]+'" aria-label="One less '+esc(st[1])+'">−</button>')
+        + '<input id="in_'+st[0]+'" data-set="'+st[0]+'" type="number" min="0" inputmode="'+(money?'decimal':'numeric')+'" value="'+(val||'')+'" placeholder="0" aria-label="'+esc(st[1])+'">'
+        + (money ? '' : '<button type="button" class="plus" data-inc="'+st[0]+'" aria-label="One more '+esc(st[1])+'">+</button>')+'</div></div>';
+    }).join('');
+    refreshDayBits();
+  }
+  function setVal(stage, value){
+    var d = $('day').value || todayIso(), doc = JSON.parse(JSON.stringify(dayDoc(d)));
+    doc.date = d; doc.src = doc.src || {}; doc.src[src] = doc.src[src] || {};
+    doc.src[src][stage] = Math.max(0, Number(value) || 0);
+    days[d] = doc; queueSave(d); renderHeader(); refreshDayBits();
+  }
+
+  // ---------- saving (one write at a time per document, coalesced) ----------
+  var timers = {}, chain = {}, pending = {}, local = false, LKEY = 'remote_sales_tracker_v1';
+  function saveLocal(){ try { localStorage.setItem(LKEY, JSON.stringify({ days: days, plan: plan })); return true; } catch (e) { return false; } }
+  function loadLocal(){ try { var x = JSON.parse(localStorage.getItem(LKEY) || 'null'); if (x){ days = x.days || {}; plan = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), x.plan || {}); plan.split = Object.assign({}, DEFAULTS.split, (x.plan||{}).split || {}); } } catch (e) {} }
+  function goLocal(){
+    local = true; db = null; loadLocal(); fillPlanForm(); renderAll(); $('backup').hidden = false;
+    try { localStorage.setItem(LKEY+'_t', '1'); localStorage.removeItem(LKEY+'_t'); }
+    catch (e) { var n = $('loadNote'); n.hidden = false; n.className = 'note warn'; n.textContent = 'This browser is blocking storage, so numbers won\'t be kept after you close the page.'; }
+  }
+  function queueSave(d){
+    if (!db){ $('saveStatus').textContent = local && saveLocal() ? 'Saved on this device' : 'Not saved: storage isn\'t available.'; return; }
+    $('saveStatus').textContent = 'Saving…';
+    pending[d] = true;
+    clearTimeout(timers[d]);
+    timers[d] = setTimeout(function(){
+      var body = JSON.parse(JSON.stringify(days[d]));
+      chain[d] = (chain[d] || Promise.resolve()).then(function(){ return db.doc('days/'+d).set(body); })
+        .then(function(){ if (JSON.stringify(days[d]) === JSON.stringify(body)) pending[d] = false; $('saveStatus').textContent = 'Saved'; })
+        .catch(function(e){ pending[d] = false; $('saveStatus').textContent = e && e.code === 'invalid_argument' ? 'You can view this tracker but not change it.' : 'Couldn\'t save. Check your connection and try again.'; });
+    }, 700);
+  }
+  var planTimer = null, planChain = Promise.resolve();
+  function savePlan(){
+    if (!db){ $('planStatus').textContent = local && saveLocal() ? 'Saved on this device' : 'Not saved: storage isn\'t available.'; return; }
+    $('planStatus').textContent = 'Saving…';
+    clearTimeout(planTimer);
+    planTimer = setTimeout(function(){
+      var body = JSON.parse(JSON.stringify(plan));
+      planChain = planChain.then(function(){ return db.doc('settings/plan').set(body); })
+        .then(function(){ $('planStatus').textContent = 'Saved'; })
+        .catch(function(){ $('planStatus').textContent = 'Couldn\'t save the plan. Try again.'; });
+    }, 700);
+  }
+
+  // ---------- month ----------
+  function renderMonth(){
+    var t = monthTotals(), tot = t.tot, rt = rates(tot);
+    var rows = [['contacted','Contacted'],['triage','Triages'],['booked','Booked'],['showed','Showed'],['closed','Closed']];
+    var max = Math.max(1, tot.contacted, tot.triage);
+    var rateKeys = { triage:'r1', booked:'r2', showed:'r3', closed:'r4' };
+    $('funnel').innerHTML = rows.map(function(r, i){
+      var html = '<div class="fn"><span>'+r[1]+'</span><div class="track"><i style="width:'+(tot[r[0]]/max*100)+'%"></i></div><em>'+tot[r[0]]+'</em></div>';
+      if (i < rows.length-1){ var k = rateKeys[rows[i+1][0]], x = rt[k];
+        html += '<div class="rate">↓ '+pct(x.v)+(x.real ? ' this month' : ' (starting guess, not enough calls yet)')+'</div>'; }
+      return html;
+    }).join('') + '<div class="fn" style="margin-top:6px"><span><b>Earned</b></span><div></div><em>'+esc(money(tot.earned))+'</em></div>';
+    var head = '<thead><tr><th>Source</th><th>Contacted</th><th>Triages</th><th>Booked</th><th>Showed</th><th>Closed</th><th>Earned</th><th>Close rate</th></tr></thead>';
+    var body = SOURCES.map(function(s){ var v = t.by[s[0]];
+      return '<tr><td>'+esc(s[1])+'</td><td>'+v.contacted+'</td><td>'+v.triage+'</td><td>'+v.booked+'</td><td>'+v.showed+'</td><td>'+v.closed+'</td><td>'+esc(money(v.earned))+'</td><td>'+(v.showed ? pct(v.closed/v.showed) : '–')+'</td></tr>'; }).join('');
+    var foot = '<tfoot><tr><td>Total</td><td>'+tot.contacted+'</td><td>'+tot.triage+'</td><td>'+tot.booked+'</td><td>'+tot.showed+'</td><td>'+tot.closed+'</td><td>'+esc(money(tot.earned))+'</td><td>'+(tot.showed ? pct(tot.closed/tot.showed) : '–')+'</td></tr></tfoot>';
+    $('bySource').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
+    var active = SOURCES.filter(function(s){ var v = t.by[s[0]]; return v.contacted + v.triage + v.booked + v.showed + v.closed > 0; }).length;
+    $('diversity').innerHTML = active >= 3 ? '<span class="chip good">'+active+' sources active</span> Good spread. One source drying up won\'t stop your month.'
+      : '<span class="chip warn">'+active+' source'+(active===1?'':'s')+' active</span> Aim for 3–4. Referrals and CRM follow-up are the quickest to add.';
+  }
+
+  // ---------- plan ----------
+  function fillPlanForm(){
+    $('p_goal').value = plan.goal; $('p_comm').value = plan.commission; $('p_cur').value = plan.currency; $('p_days').value = String(plan.daysPerWeek);
+    $('p_r1').value = plan.r1; $('p_r2').value = plan.r2; $('p_r3').value = plan.r3; $('p_r4').value = plan.r4;
+  }
+  function renderPlan(){
+    var t = monthTotals(), tot = t.tot, rt = rates(tot), r = t.r;
+    var used = ['r1','r2','r3','r4'].filter(function(k){ return rt[k].real; }).length;
+    $('rateUse').textContent = used ? 'Using your real rate for '+used+' of 4 steps this month.' : 'Using your starting guesses for all 4 steps.';
+    var comm = num(plan.commission), goal = num(plan.goal);
+    var closes = comm ? Math.ceil(goal/comm) : 0;
+    var shows = closes / rt.r4.v, booked = shows / rt.r3.v, triages = booked / rt.r2.v, contacted = triages / rt.r1.v;
+    var wd = workdaysIn(r.y, r.m) || 1, perWeek = plan.daysPerWeek;
+    function tile(n, label, key){
+      var day = n / wd, done = tot[key] || 0;
+      return '<div class="tile"><b>'+Math.ceil(day*10)/10+'</b><span>'+label+' a day</span><small>'+Math.ceil(day*perWeek)+' a week · '+Math.ceil(n)+' this month · '+done+' so far</small></div>';
+    }
+    $('need').innerHTML = tile(contacted,'Contacted','contacted') + tile(triages,'Triages','triage') + tile(booked,'Calls booked','booked') + tile(shows,'Shows','showed') + tile(closes,'Closes','closed');
+    $('needNote').textContent = comm ? 'Worked back from '+money(goal)+' at '+money(comm)+' per close: '+closes+' closes this month over '+wd+' working days.' : 'Add your commission per close to see the daily targets.';
+    var totalCloses = tot.closed;
+    $('split').innerHTML = SOURCES.map(function(s){
+      var target = num((plan.split||{})[s[0]]), actual = totalCloses ? t.by[s[0]].closed/totalCloses*100 : 0;
+      return '<div class="row"><span>'+esc(s[1])+'</span><div class="dual" title="Actual '+Math.round(actual)+'%, target '+target+'%"><i style="width:'+actual+'%"></i><u style="left:calc('+Math.min(100,target)+'% - 1px)"></u></div>'
+        + '<input id="sp_'+s[0]+'" data-split="'+s[0]+'" type="number" min="0" max="100" inputmode="numeric" value="'+target+'" aria-label="Target % for '+esc(s[1])+'"></div>';
+    }).join('') + '<p class="note" style="margin:4px 0 0">Bar: share of this month\'s closes. Line: your target. Targets add up to '+SOURCES.reduce(function(n,s){ return n + num((plan.split||{})[s[0]]); },0)+'%.</p>';
+  }
+
+  // ---------- views ----------
+  function show(v){
+    if (['today','month','plan'].indexOf(v) < 0) v = 'today';
+    view = v;
+    ['today','month','plan'].forEach(function(x){ $('v-'+x).hidden = x !== v; });
+    document.querySelectorAll('nav.tabs a').forEach(function(a){ if (a.dataset.view === v) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+    renderAll();
+  }
+  function renderAll(){
+    renderHeader();
+    if (view === 'today') renderToday();
+    if (view === 'month') renderMonth();
+    if (view === 'plan') renderPlan();
+  }
+
+  // ---------- events ----------
+  $('srcs').addEventListener('click', function(e){ var b = e.target.closest('[data-src]'); if (!b) return; src = b.dataset.src; renderToday(); });
+  $('stages').addEventListener('click', function(e){
+    var inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]');
+    if (!inc && !dec) return;
+    var k = (inc || dec).dataset[inc ? 'inc' : 'dec'], el = $('in_'+k), v = Math.max(0, num(el.value) + (inc ? 1 : -1));
+    el.value = v || ''; setVal(k, v);
+  });
+  $('stages').addEventListener('input', function(e){ var k = e.target.dataset.set; if (!k) return; setVal(k, e.target.value); });
+  function moveDay(n){ var d = new Date(($('day').value || todayIso())+'T12:00:00'); d.setDate(d.getDate()+n); $('day').value = iso(d); renderToday(); }
+  $('prevDay').onclick = function(){ moveDay(-1); };
+  $('nextDay').onclick = function(){ moveDay(1); };
+  $('toToday').onclick = function(){ $('day').value = todayIso(); renderToday(); };
+  $('day').addEventListener('change', renderToday);
+  ['p_goal','p_comm','p_r1','p_r2','p_r3','p_r4'].forEach(function(id){
+    $(id).addEventListener('input', function(){ var k = { p_goal:'goal', p_comm:'commission', p_r1:'r1', p_r2:'r2', p_r3:'r3', p_r4:'r4' }[id];
+      var v = num(this.value); if (/^p_r/.test(id)) v = Math.min(100, v || 1); plan[k] = v; savePlan(); renderHeader(); renderPlan(); });
+  });
+  $('p_cur').addEventListener('change', function(){ plan.currency = this.value; savePlan(); renderAll(); });
+  $('p_days').addEventListener('change', function(){ plan.daysPerWeek = Number(this.value); savePlan(); renderAll(); });
+  $('split').addEventListener('input', function(e){ var k = e.target.dataset.split; if (!k) return; plan.split = plan.split || {}; plan.split[k] = num(e.target.value); savePlan(); });
+  $('split').addEventListener('change', function(){ renderPlan(); });
+  window.addEventListener('hashchange', function(){ show(location.hash.slice(1)); });
+
+  // ---------- start ----------
+  $('day').value = todayIso();
+  fillPlanForm();
+  show(location.hash.slice(1) || 'today');
+
+  var note = $('loadNote'), loadTimer = null;
+  function connect(){
+    if (!window.claude || !window.claude.use){ goLocal(); return; }
+    window.claude.use('db').then(function(d){
+      if (!d){ goLocal(); return; }
+      db = d;
+      loadTimer = setTimeout(function(){ note.hidden = false; note.className = 'note warn'; note.textContent = 'Your saved numbers can\'t be reached yet. Anything you enter now will save once the connection is back.'; }, 10000);
+      var first = { days:false, plan:false };
+      function loaded(k, snap){ first[k] = first[k] || !snap.metadata.fromCache; if (first.days && first.plan){ clearTimeout(loadTimer); note.hidden = true; } }
+      db.collection('days').onSnapshot(function(snap){
+        snap.docs.forEach(function(doc){ var d = doc.data(); if (d && !pending[doc.id]) days[doc.id] = JSON.parse(JSON.stringify(d)); });
+        snap.docChanges().forEach(function(c){ if (c.type === 'removed') delete days[c.doc.id]; });
+        loaded('days', snap);
+        if (!(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.set)) renderAll(); else renderHeader();
+      }, function(){ clearTimeout(loadTimer); note.hidden = false; note.className = 'note warn'; note.textContent = 'Your saved days couldn\'t be loaded. Reopen the tracker to try again.'; });
+      db.doc('settings/plan').onSnapshot(function(snap){
+        if (snap.exists){ var p = snap.data(); plan = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), JSON.parse(JSON.stringify(p))); plan.split = Object.assign({}, DEFAULTS.split, p.split || {});
+          var a = document.activeElement; if (!(a && /^(p_|sp_)/.test(a.id || ''))) fillPlanForm(); }
+        loaded('plan', snap); renderAll();
+      }, function(){});
+    });
+  }
+  connect();
+
+  // ---------- backup (standalone page only) ----------
+  $('bkDown').onclick = function(){
+    var blob = new Blob([JSON.stringify({ app:'remote-sales-tracker', saved: new Date().toISOString(), days: days, plan: plan }, null, 1)], { type:'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'remote-sales-tracker-backup-' + todayIso() + '.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    $('bkStatus').textContent = 'Backup downloaded';
+  };
+  $('bkUp').onchange = function(){
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try { var x = JSON.parse(r.result); if (!x || !x.days) throw 0;
+        days = x.days; plan = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), x.plan || {}); plan.split = Object.assign({}, DEFAULTS.split, (x.plan||{}).split || {});
+        saveLocal(); fillPlanForm(); renderAll(); $('bkStatus').textContent = 'Restored ' + Object.keys(days).length + ' days from the backup';
+      } catch (e) { $('bkStatus').textContent = 'That file isn\'t a tracker backup. Choose the .json file you downloaded.'; }
+    };
+    r.readAsText(f); this.value = '';
+  };
+})();
+</script>
