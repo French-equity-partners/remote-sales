@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Remote Sales Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: a phone-first tracker. Sticky pace strip on top, four views (Today, Deals, Month, Plan) switched by tabs. */
+:root{
+  --bg:#F2F5F7; --surface:#FFFFFF; --sunk:#E7ECF0; --line:#D5DDE3;
+  --ink:#16222E; --muted:#5A6977; --accent:#C2581C; --accent-ink:#FFFFFF;
+  --good:#1D7F55; --warn:#A86B12; --bad:#B73A27;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E151C; --surface:#16202A; --sunk:#1D2935; --line:#2A3846;
+  --ink:#E4ECF2; --muted:#93A3B2; --accent:#F0874A; --accent-ink:#1A0E06;
+  --good:#4CC28E; --warn:#E3A84A; --bad:#F07762; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#16202A; --sunk:#1D2935; --line:#2A3846;
+  --ink:#E4ECF2; --muted:#93A3B2; --accent:#F0874A; --accent-ink:#1A0E06;
+  --good:#4CC28E; --warn:#E3A84A; --bad:#F07762; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:780px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{padding-block:12px 0}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-stretch:80%;font-weight:800;font-size:24px;letter-spacing:.01em;margin:0;text-wrap:balance}
+.month{font-size:13px;color:var(--muted)}
+.pace{margin-top:10px;display:grid;gap:6px}
+.pace-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.pace-row b{color:var(--ink);font-family:var(--display);font-stretch:85%;font-size:17px}
+.bar{position:relative;height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:5px}
+.bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.55}
+nav.tabs{display:flex;gap:2px;margin-top:10px}
+nav.tabs a{flex:1;text-align:center;padding:10px 4px 11px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;border-bottom:3px solid transparent}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{font-size:13px;color:var(--muted);margin:14px 0 0}
+.note.warn{color:var(--warn)}
+h2{font-family:var(--display);font-stretch:85%;font-weight:700;font-size:19px;margin:24px 0 10px;text-wrap:balance}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.daybar{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.daybar input[type=date]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+button{font:inherit;cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 12px}
+.primary{background:var(--accent);border:1px solid var(--accent);color:var(--accent-ink);border-radius:8px;padding:10px 16px;font-weight:600}
+.danger{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:8px 12px}
+.srcs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-top:12px;scrollbar-width:thin}
+.srcs button{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13.5px;display:flex;gap:6px;align-items:center}
+.srcs button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.srcs button small{font-size:11.5px;opacity:.75}
+.stages{display:grid;gap:8px;margin-top:12px}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stage .nm{font-weight:600}
+.stage .hint{font-size:12.5px;color:var(--muted)}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font-size:20px;line-height:1}
+.step button.plus{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.step input{width:68px;height:40px;text-align:center;font-family:var(--display);font-stretch:85%;font-weight:700;font-size:20px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.tile b{display:block;font-family:var(--display);font-stretch:85%;font-weight:700;font-size:22px}
+.tile span{font-size:12px;color:var(--muted)}
+.tile small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.funnel{display:grid;gap:8px}
+.fn{display:grid;grid-template-columns:118px minmax(0,1fr) 60px;gap:10px;align-items:center;font-size:14px}
+.fn .track{height:22px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.fn .track i{display:block;height:100%;background:var(--accent);opacity:.85;border-radius:5px;min-width:2px}
+.fn em{font-style:normal;text-align:right;font-family:var(--display);font-stretch:85%;font-weight:700}
+.rate{font-size:12px;color:var(--muted);padding-left:128px;margin-top:-4px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+tfoot td{font-weight:700}
+#bench{min-width:0}
+#bench td:first-child{white-space:normal}
+#bench th,#bench td{padding:9px 8px}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip.good{color:var(--good)} .chip.warn{color:var(--warn)} .chip.bad{color:var(--bad)} .chip.mute{color:var(--muted)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.form label{display:grid;gap:4px;font-size:13px;color:var(--muted);font-weight:600;min-width:0}
+.form input,.form select,.form textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+.form .wide{grid-column:1/-1}
+.form .hintline{font-weight:400;font-size:12px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.mode h3{font-family:var(--display);font-stretch:85%;font-size:16px;margin:0 0 8px}
+.mode .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.mode .row:last-child{border-bottom:0}
+.mode .row b{font-family:var(--display);font-stretch:85%;font-size:16px}
+.split{display:grid;gap:8px}
+.split .row{display:grid;grid-template-columns:120px minmax(0,1fr) 80px;gap:10px;align-items:center;font-size:14px}
+.split .row input{width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface);color:var(--ink);text-align:right}
+.dual{position:relative;height:16px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.dual i{position:absolute;inset:0 auto 0 0;background:var(--accent);opacity:.85}
+.dual u{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.fix{display:grid;gap:8px;counter-reset:fix}
+.fix li{list-style:none;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.fix li.first{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.fix .nm{font-weight:600}
+.fix .meta{font-size:12.5px;color:var(--muted)}
+ol.fix{margin:0;padding:0}
+p.body{max-width:65ch;margin:8px 0}
+ul.tips{margin:8px 0 0;padding-left:18px;max-width:65ch}
+ul.tips li{margin:4px 0}
+.status{font-size:12px;color:var(--muted);min-height:16px;margin-top:6px}
+.period{margin-top:14px}
+.period-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 2px}
+.period-head b{font-family:var(--display);font-stretch:85%;font-size:16px}
+.period-head span{font-size:13px;color:var(--muted)}
+.deal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;text-align:left;width:100%;color:var(--ink)}
+.deal .who{font-weight:600;overflow-wrap:anywhere}
+.deal .sub{font-size:12.5px;color:var(--muted);grid-column:1/2}
+.deal .amt{text-align:right;font-family:var(--display);font-stretch:85%;font-weight:700;font-size:17px}
+.deal .amt small{display:block;font-family:var(--body);font-weight:400;font-size:12px;color:var(--muted)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:16px;color:var(--muted);font-size:14px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.practice{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.practice label{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}
+.practice input{width:22px;height:22px;accent-color:var(--accent)}
+.stall-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:8px}
+.stall-grid .stage{padding:8px 10px}
+.stall-grid .step button{width:34px;height:34px;font-size:18px}
+.stall-grid .step input{width:52px;height:34px;font-size:17px}
+details.flow{margin-top:8px}
+details.flow summary{cursor:pointer;font-weight:600;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+details.flow[open] summary{border-radius:10px 10px 0 0}
+.flowlist{margin:0;padding:6px 12px 10px 32px;background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px}
+.flowlist li{margin:8px 0;max-width:65ch}
+.flowlist li b{display:block}
+.flowlist li span{font-size:13.5px;color:var(--muted)}
+@media (max-width:480px){ .fn{grid-template-columns:92px minmax(0,1fr) 50px} .rate{padding-left:102px} .split .row{grid-template-columns:92px minmax(0,1fr) 72px} nav.tabs a{font-size:13.5px} }
+@media (prefers-reduced-motion:no-preference){ .bar i,.fn .track i,.dual i{transition:width .35s ease} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Remote Sales Tracker</h1><span class="month" id="monthName"></span></div>
+    <div class="pace">
+      <div class="pace-row"><span>Commission this month <b id="mtd">0</b></span><span>Goal <b id="goalShow">0</b></span><span id="paceChip"></span></div>
+      <div class="bar" aria-hidden="true"><i id="mtdBar" style="width:0"></i><u id="paceMark" style="left:0"></u></div>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a href="#today" data-view="today">Today</a>
+      <a href="#deals" data-view="deals">Deals</a>
+      <a href="#month" data-view="month">Month</a>
+      <a href="#plan" data-view="plan">Plan</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="note" id="loadNote" hidden></p>
+
+  <!-- TODAY -->
+  <section id="v-today">
+    <div class="daybar">
+      <button class="ghost" id="prevDay" aria-label="Previous day">‹</button>
+      <input type="date" id="day" aria-label="Day">
+      <button class="ghost" id="nextDay" aria-label="Next day">›</button>
+      <button class="ghost" id="toToday">Today</button>
+    </div>
+    <div class="srcs" id="srcs" role="group" aria-label="Lead source"></div>
+    <div class="stages" id="stages"></div>
+    <div class="status" id="saveStatus" aria-live="polite"></div>
+    <div class="panel practice"><label for="practice"><input type="checkbox" id="practice"> 10-minute NEPQ practice done</label><span class="chip mute" id="streak"></span></div>
+    <h2>Calls that didn't close: where did it stall?</h2>
+    <p class="note" style="margin:0">After each call held that didn't close, tap the phase where it lost momentum. Be honest: it's for you.</p>
+    <div class="stall-grid" id="stall"></div>
+    <h2>This day, all sources</h2>
+    <div class="tiles" id="dayTotal"></div>
+    <p class="note">Log each sale and payment in <a href="#deals">Deals</a>. That's where your commission comes from.</p>
+  </section>
+
+  <!-- DEALS -->
+  <section id="v-deals" hidden>
+    <h2 id="dealFormTitle">Log a sale or payment</h2>
+    <div class="panel form" id="dealForm">
+      <label for="dl_type">Type<select id="dl_type"><option value="new">New sale</option><option value="payment">Payment on an earlier sale</option><option value="deposit">Deposit</option></select></label>
+      <label for="dl_date">Date<input id="dl_date" type="date"></label>
+      <label for="dl_name" class="wide">Client name<input id="dl_name" autocomplete="off" placeholder="e.g. Kyle Simpson"></label>
+      <label for="dl_src">Lead source<select id="dl_src"></select></label>
+      <label for="dl_program">Program<input id="dl_program" autocomplete="off" placeholder="e.g. Sales Academy"></label>
+      <label for="dl_value">Program value<input id="dl_value" type="number" min="0" step="1" inputmode="decimal" placeholder="Full price of the program"></label>
+      <label for="dl_cash">Cash collected now<input id="dl_cash" type="number" min="0" step="1" inputmode="decimal" placeholder="What actually came in"></label>
+      <label for="dl_pct">Commission %<input id="dl_pct" type="number" min="0" max="100" step="0.5" inputmode="decimal"></label>
+      <label class="wide">Commission payable<b id="dl_comm" style="font-family:var(--display);font-stretch:85%;font-size:22px;color:var(--ink)">0</b><span class="hintline">Paid on cash collected, not on program value.</span></label>
+      <label for="dl_notes" class="wide">Notes<input id="dl_notes" autocomplete="off" placeholder="Payment plan, days to close, anything finance should know"></label>
+      <div class="wide actions"><button type="button" class="primary" id="dl_save">Save</button><button type="button" class="ghost" id="dl_cancel" hidden>Cancel edit</button><button type="button" class="danger" id="dl_del" hidden>Delete</button><span class="status" id="dealStatus" aria-live="polite"></span></div>
+    </div>
+    <h2>Your deals</h2>
+    <div id="upcoming"></div>
+    <div id="dealList"></div>
+  </section>
+
+  <!-- MONTH -->
+  <section id="v-month" hidden>
+    <h2>Money this month</h2>
+    <div class="tiles" id="money"></div>
+    <h2>Funnel this month</h2>
+    <div class="panel funnel" id="funnel"></div>
+    <h2>Where calls stall</h2>
+    <div class="panel funnel" id="stallMonth"></div>
+    <h2>Against Matt's targets</h2>
+    <div class="tablewrap"><table id="bench"></table></div>
+    <h2>By lead source</h2>
+    <div class="tablewrap"><table id="bySource"></table></div>
+    <p class="note" id="diversity"></p>
+  </section>
+
+  <!-- PLAN -->
+  <section id="v-plan" hidden>
+    <h2>Your goal</h2>
+    <div class="panel form">
+      <label for="p_goal">Monthly income goal<input id="p_goal" type="number" min="0" step="100" inputmode="numeric"><span class="hintline" id="p_year"></span></label>
+      <label for="p_aov">Average sale value<input id="p_aov" type="number" min="0" step="50" inputmode="numeric"></label>
+      <label for="p_pct">Commission %<input id="p_pct" type="number" min="0" max="100" step="0.5" inputmode="decimal"></label>
+      <label for="p_coll">Cash collected up front %<input id="p_coll" type="number" min="1" max="100" inputmode="numeric"><span class="hintline">Lower it if most clients pay in instalments.</span></label>
+      <label for="p_cur">Currency<select id="p_cur"><option value="$">$ US dollar</option><option value="£">£ Pound</option><option value="€">€ Euro</option></select></label>
+      <label for="p_days">Working days a week<select id="p_days"><option value="5">5 (Mon–Fri)</option><option value="6">6 (Mon–Sat)</option></select></label>
+    </div>
+    <p class="note" id="perSale"></p>
+
+    <h2>What the goal takes</h2>
+    <p class="body">Starting rates until you have real numbers. Once a step has enough activity this month, your real rate replaces the guess and shows in bold.</p>
+    <div class="modes">
+      <div class="panel mode">
+        <h3>Inbound (booked calls)</h3>
+        <div class="form" style="margin-bottom:10px">
+          <label for="p_inClose">Close rate %<input id="p_inClose" type="number" min="1" max="100" inputmode="numeric"></label>
+          <label for="p_show">Show rate %<input id="p_show" type="number" min="1" max="100" inputmode="numeric"></label>
+          <label for="p_len">Call length (min)<input id="p_len" type="number" min="5" max="240" inputmode="numeric"></label>
+        </div>
+        <div id="inbound"></div>
+      </div>
+      <div class="panel mode">
+        <h3>Outbound (dialling)</h3>
+        <div class="form" style="margin-bottom:10px">
+          <label for="p_outClose">Close rate %<input id="p_outClose" type="number" min="1" max="100" inputmode="numeric"></label>
+          <label for="p_pick">Pick-up rate %<input id="p_pick" type="number" min="1" max="100" inputmode="numeric"></label>
+          <label for="p_p2p">Pick-up to pitch %<input id="p_p2p" type="number" min="1" max="100" inputmode="numeric"></label>
+        </div>
+        <div id="outbound"></div>
+      </div>
+    </div>
+
+    <h2>Call flow (NEPQ)</h2>
+    <details class="flow"><summary>The phases in order, and the question that matters in each</summary>
+      <ol class="flowlist" id="flowList"></ol>
+    </details>
+
+    <h2>What to fix first</h2>
+    <p class="body">Matt's order for solving problems. Work down the list: the first step below target is the one to fix this week.</p>
+    <ol class="fix" id="fix"></ol>
+
+    <h2>Lead source split</h2>
+    <p class="body">Your target share of closes from each source, against this month. Aim for 3–4 sources with activity so one drying up can't sink your month.</p>
+    <div class="panel split" id="split"></div>
+    <h2>Daily time split</h2>
+    <ul class="tips">
+      <li><b>Leads flowing:</b> about 5 hours on new leads, 2 hours on referrals, follow-ups and CRM farming.</li>
+      <li><b>Leads drying up:</b> about 1 hour on each other source, still an 8-hour day.</li>
+      <li>Keep every source running a little, even in good weeks.</li>
+    </ul>
+    <div class="status" id="planStatus" aria-live="polite"></div>
+    <div id="backup" hidden>
+      <h2>Backup</h2>
+      <p class="body">Your numbers are saved in this browser only. Download a backup now and then, and restore it on a new phone or if you clear your browser.</p>
+      <div class="actions"><button type="button" class="ghost" id="bkDown">Download backup</button><label class="ghost" for="bkUp" style="cursor:pointer">Restore from backup</label><input type="file" id="bkUp" accept="application/json,.json" hidden></div>
+      <div class="status" id="bkStatus" aria-live="polite"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var SOURCES = [['provided','Provided leads'],['referral','Referrals'],['outbound','Outbound'],['crm','CRM follow-up'],['social','Social media']];
+  var STAGES = [
+    ['dials','Dials','Outbound calls made'],
+    ['live','Live conversations','Picked up and talked'],
+    ['booked','Calls booked','Sales calls set'],
+    ['held','Calls held','Sales calls that happened'],
+    ['noshow','No-shows','Booked but didn’t turn up'],
+    ['offers','Offers made','Pitched the program'],
+    ['followups','Follow-ups set','Callbacks scheduled'],
+    ['closed','Closes','Deals won (log the money in Deals)']
+  ];
+  // NEPQ phases a lost call can stall at. key, label, the habit to practise when it's the top one.
+  var PHASES = [
+    ['connection','Connection','Get them talking about why they booked, before any agenda.','"What were you hoping could happen from talking with us?"'],
+    ['situation','Situation','Map what they do now without judging it.','"What are you doing for that right now, and how long for?"'],
+    ['problem','Problem','Drill into vague answers: what, how long, what it costs.','"What do you mean by that? How long has it been going on?"'],
+    ['solution','Solution','Get their ideal outcome and how it feels, in their words.','"If that were solved, what would change for you?"'],
+    ['commitment','Commitment','Let them say why now, not later.','"Why now, though? Why not leave it a few months?"'],
+    ['presentation','Presentation','Price up front, 2–4 pillars tied to their problems, under 15% of the call.','"You said [problem]. This part does [their ideal fix]. Does that make sense?"'],
+    ['money','Close: money','Ask if it would work if funding weren\u2019t an issue, then let them find the way.','"If funding weren\u2019t an issue, is this something that would work for you?"'],
+    ['partner','Close: partner / think it over','Book a follow-up with both of them before the call ends.','"Is there anyone you\u2019d want to talk this over with? Let\u2019s book a time with you both."']
+  ];
+  var TARGETS = { dials:150, live:12, booked:3, followups:5 };   // per working day, from the Closer's Playbook
+  var DEFAULTS = { goal:5000, aov:3700, pct:15, coll:100, currency:'$', daysPerWeek:5,
+    inClose:30, show:70, len:50, outClose:25, pick:12, p2p:50,
+    split:{ provided:60, referral:10, outbound:10, crm:10, social:10 } };
+
+  var days = {}, deals = {}, plan = clone(DEFAULTS);
+  var db = null, local = false, src = 'provided', view = 'today', editing = null;
+  var $ = function(id){ return document.getElementById(id); };
+  function clone(x){ return JSON.parse(JSON.stringify(x)); }
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function iso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function todayIso(){ return iso(new Date()); }
+  function num(v){ v = Number(v); return isFinite(v) && v > 0 ? v : 0; }
+  function money(v){ return plan.currency + Math.round(v).toLocaleString('en-GB'); }
+  function pct(v){ return isFinite(v) ? Math.round(v*100)+'%' : '–'; }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function mergePlan(p){ var o = Object.assign(clone(DEFAULTS), clone(p || {})); o.split = Object.assign({}, DEFAULTS.split, (p && p.split) || {}); return o; }
+  function nice(d){ return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+
+  // ---------- dates ----------
+  function monthOf(ref){ var d = new Date(ref+'T12:00:00'); return { y:d.getFullYear(), m:d.getMonth(), start:iso(new Date(d.getFullYear(),d.getMonth(),1)), end:iso(new Date(d.getFullYear(),d.getMonth()+1,0)) }; }
+  function isWorkday(d){ var w = d.getDay(); return plan.daysPerWeek == 6 ? w !== 0 : (w !== 0 && w !== 6); }
+  function workdaysIn(y, m, upto){ var n = 0, last = new Date(y, m+1, 0).getDate(); for (var i=1;i<=(upto||last);i++) if (isWorkday(new Date(y,m,i))) n++; return n; }
+  // Pay periods: 1st–15th and 16th–end, both paid on the 15th of the next month.
+  function period(d){ var x = new Date(d+'T12:00:00'), y = x.getFullYear(), m = x.getMonth(), last = new Date(y,m+1,0).getDate(), first = x.getDate() <= 15;
+    var mon = x.toLocaleDateString('en-GB',{month:'short',year:'numeric'});
+    return { key: y+'-'+pad(m+1)+(first?'-a':'-b'), label: (first ? '1–15 ' : '16–'+last+' ') + mon, due: iso(new Date(y, m+1, 15)) }; }
+
+  // ---------- money ----------
+  function commOf(dl){ return num(dl.cash) * num(dl.pct) / 100; }
+  function monthMoney(){
+    var r = monthOf(todayIso()), o = { comm:0, cash:0, revenue:0, newSales:0, deposits:0, payments:0 };
+    Object.keys(deals).forEach(function(id){ var dl = deals[id]; if (!dl || dl.date < r.start || dl.date > r.end) return;
+      o.comm += commOf(dl); o.cash += num(dl.cash);
+      if (dl.type === 'new'){ o.revenue += num(dl.value); o.newSales++; } else if (dl.type === 'deposit') o.deposits++; else o.payments++; });
+    return o;
+  }
+
+  // ---------- activity ----------
+  function empty(){ var o = {}; STAGES.forEach(function(s){ o[s[0]] = 0; }); return o; }
+  function monthTotals(){
+    var r = monthOf(todayIso()), tot = empty(), by = {};
+    SOURCES.forEach(function(s){ by[s[0]] = empty(); });
+    Object.keys(days).forEach(function(d){
+      if (d < r.start || d > r.end) return;
+      var sx = (days[d] && days[d].src) || {};
+      SOURCES.forEach(function(s){ var v = sx[s[0]] || {}; STAGES.forEach(function(st){ var x = num(v[st[0]]); by[s[0]][st[0]] += x; tot[st[0]] += x; }); });
+    });
+    return { tot:tot, by:by, r:r };
+  }
+  function stallTotals(){ var r = monthOf(todayIso()), o = {}; PHASES.forEach(function(ph){ o[ph[0]] = 0; });
+    Object.keys(days).forEach(function(d){ if (d < r.start || d > r.end) return; var sx = (days[d] && days[d].stall) || {}; PHASES.forEach(function(ph){ o[ph[0]] += num(sx[ph[0]]); }); });
+    return o; }
+  function topStall(sm){ var best = null; PHASES.forEach(function(ph){ if (sm[ph[0]] > 0 && (!best || sm[ph[0]] > sm[best[0]])) best = ph; }); return best; }
+  function practiceDays(){ var r = monthOf(todayIso()); return Object.keys(days).filter(function(d){ return d >= r.start && d <= r.end && days[d] && days[d].practice; }).length; }
+  // Real rates replace guesses once there is enough activity behind them.
+  function rates(t){
+    function pick(n, d, min, guess){ return d >= min ? { v:n/d, real:true } : { v:guess/100, real:false }; }
+    return {
+      show: pick(t.held, t.held + t.noshow, 10, plan.show),
+      close: pick(t.closed, t.held, 10, plan.inClose),
+      outClose: pick(t.closed, t.held, 10, plan.outClose),
+      pick: pick(t.live, t.dials, 100, plan.pick),
+      p2p: pick(t.offers, t.live, 10, plan.p2p)
+    };
+  }
+
+  // ---------- header ----------
+  function renderHeader(){
+    var r = monthOf(todayIso()), now = new Date(), mm = monthMoney(), goal = num(plan.goal);
+    $('monthName').textContent = now.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+    $('mtd').textContent = money(mm.comm); $('goalShow').textContent = money(goal);
+    var all = workdaysIn(r.y, r.m), done = workdaysIn(r.y, r.m, now.getDate()), expected = all ? goal*done/all : 0;
+    $('mtdBar').style.width = Math.min(100, goal ? mm.comm/goal*100 : 0)+'%';
+    $('paceMark').style.left = 'calc('+Math.min(100, goal ? expected/goal*100 : 0)+'% - 1px)';
+    $('paceChip').innerHTML = !goal ? '' : mm.comm >= expected ? '<span class="chip good">On pace</span>' : mm.comm >= expected*0.7 ? '<span class="chip warn">Slightly behind</span>' : '<span class="chip bad">Behind by '+esc(money(expected-mm.comm))+'</span>';
+  }
+
+  // ---------- today ----------
+  function dayDoc(d){ return days[d] || { date:d, src:{} }; }
+  function srcLabel(doc, s){ var v = (doc.src||{})[s[0]] || {}, act = STAGES.reduce(function(n,st){ return n + num(v[st[0]]); }, 0); return esc(s[1])+(act ? ' <small>'+act+'</small>' : ''); }
+  function refreshDayBits(){
+    var d = $('day').value || todayIso(), doc = dayDoc(d);
+    $('srcs').querySelectorAll('[data-src]').forEach(function(b){ var s = SOURCES.find(function(x){ return x[0] === b.dataset.src; }); b.innerHTML = srcLabel(doc, s); });
+    var tot = empty(); SOURCES.forEach(function(s){ var x = (doc.src||{})[s[0]] || {}; STAGES.forEach(function(st){ tot[st[0]] += num(x[st[0]]); }); });
+    function t(k, label){ var tg = TARGETS[k]; var c = tg ? (tot[k] >= tg ? 'good' : 'mute') : '';
+      return '<div class="tile"><b>'+tot[k]+'</b><span>'+label+'</span>'+(tg ? '<small><span class="chip '+c+'">target '+tg+'</span></small>' : '')+'</div>'; }
+    $('dayTotal').innerHTML = t('dials','Dials') + t('live','Live convos') + t('booked','Booked') + t('held','Held') + t('offers','Offers') + t('followups','Follow-ups') + t('closed','Closes');
+  }
+  function renderToday(){
+    var d = $('day').value || todayIso(), doc = dayDoc(d);
+    $('srcs').innerHTML = SOURCES.map(function(s){ return '<button type="button" data-src="'+s[0]+'" aria-pressed="'+(src===s[0])+'">'+srcLabel(doc, s)+'</button>'; }).join('');
+    var v = (doc.src||{})[src] || {};
+    $('stages').innerHTML = STAGES.map(function(st){ var val = num(v[st[0]]);
+      return '<div class="stage"><div><div class="nm">'+esc(st[1])+'</div><div class="hint">'+esc(st[2])+'</div></div>'
+        + '<div class="step"><button type="button" data-dec="'+st[0]+'" aria-label="One less: '+esc(st[1])+'">−</button>'
+        + '<input id="in_'+st[0]+'" data-set="'+st[0]+'" type="number" min="0" inputmode="numeric" value="'+(val||'')+'" placeholder="0" aria-label="'+esc(st[1])+'">'
+        + '<button type="button" class="plus" data-inc="'+st[0]+'" aria-label="One more: '+esc(st[1])+'">+</button></div></div>';
+    }).join('');
+    $('stall').innerHTML = PHASES.map(function(ph){ var val = num((doc.stall||{})[ph[0]]);
+      return '<div class="stage"><div class="nm">'+esc(ph[1])+'</div>'
+        + '<div class="step"><button type="button" data-sdec="'+ph[0]+'" aria-label="One less: '+esc(ph[1])+'">−</button>'
+        + '<input id="st_'+ph[0]+'" data-sset="'+ph[0]+'" type="number" min="0" inputmode="numeric" value="'+(val||'')+'" placeholder="0" aria-label="Stalled at '+esc(ph[1])+'">'
+        + '<button type="button" class="plus" data-sinc="'+ph[0]+'" aria-label="One more: '+esc(ph[1])+'">+</button></div></div>';
+    }).join('');
+    $('practice').checked = !!doc.practice;
+    var sk = streak(); $('streak').textContent = sk ? sk+'-day streak' : 'No streak yet'; $('streak').className = 'chip '+(sk >= 3 ? 'good' : 'mute');
+    refreshDayBits();
+  }
+  // Consecutive days with practice ticked, counting back from today (or yesterday if today isn't ticked yet).
+  function streak(){ var d = new Date(), n = 0; if (!(days[iso(d)] || {}).practice) d.setDate(d.getDate()-1);
+    while ((days[iso(d)] || {}).practice){ n++; d.setDate(d.getDate()-1); } return n; }
+  function setDayField(fn){
+    var d = $('day').value || todayIso(), doc = clone(dayDoc(d)); doc.date = d; doc.src = doc.src || {};
+    fn(doc); days[d] = doc; queueDay(d);
+  }
+  function setStall(phase, value){ setDayField(function(doc){ doc.stall = doc.stall || {}; doc.stall[phase] = Math.max(0, Math.round(Number(value) || 0)); }); }
+  function setVal(stage, value){
+    var d = $('day').value || todayIso(), doc = clone(dayDoc(d));
+    doc.date = d; doc.src = doc.src || {}; doc.src[src] = doc.src[src] || {};
+    doc.src[src][stage] = Math.max(0, Math.round(Number(value) || 0));
+    days[d] = doc; queueDay(d); renderHeader(); refreshDayBits();
+  }
+
+  // ---------- saving ----------
+  var LKEY = 'remote_sales_tracker_v1';
+  function saveLocal(){ try { localStorage.setItem(LKEY, JSON.stringify({ days:days, deals:deals, plan:plan })); return true; } catch (e) { return false; } }
+  function loadLocal(){ try { var x = JSON.parse(localStorage.getItem(LKEY) || 'null'); if (x){ days = x.days || {}; deals = x.deals || {}; plan = mergePlan(x.plan); } } catch (e) {} }
+  var timers = {}, chains = {}, pending = {};
+  function write(key, path, getBody, statusEl, okText){
+    if (!db){ $(statusEl).textContent = local && saveLocal() ? 'Saved on this device' : 'Not saved: storage isn’t available.'; return; }
+    $(statusEl).textContent = 'Saving…'; pending[key] = true; clearTimeout(timers[key]);
+    timers[key] = setTimeout(function(){
+      var body = getBody();
+      chains[key] = (chains[key] || Promise.resolve()).then(function(){ return body ? db.doc(path).set(body) : db.doc(path).delete(); })
+        .then(function(){ var now = getBody(); if (JSON.stringify(now) === JSON.stringify(body)) pending[key] = false; $(statusEl).textContent = okText || 'Saved'; })
+        .catch(function(e){ pending[key] = false; $(statusEl).textContent = e && e.code === 'invalid_argument' ? 'You can view this tracker but not change it.' : 'Couldn’t save. Check your connection and try again.'; });
+    }, 600);
+  }
+  function queueDay(d){ write('d:'+d, 'days/'+d, function(){ return days[d] ? clone(days[d]) : null; }, 'saveStatus'); }
+  function queueDeal(id){ write('x:'+id, 'deals/'+id, function(){ return deals[id] ? clone(deals[id]) : null; }, 'dealStatus'); }
+  function savePlan(){ write('plan', 'settings/plan', function(){ return clone(plan); }, 'planStatus'); }
+
+  // ---------- deals ----------
+  function fillSrcSelect(){ $('dl_src').innerHTML = SOURCES.map(function(s){ return '<option value="'+s[0]+'">'+esc(s[1])+'</option>'; }).join(''); }
+  function resetDealForm(){
+    editing = null; $('dealFormTitle').textContent = 'Log a sale or payment';
+    $('dl_type').value = 'new'; $('dl_date').value = todayIso(); $('dl_name').value = ''; $('dl_src').value = src || 'provided';
+    $('dl_program').value = ''; $('dl_value').value = ''; $('dl_cash').value = ''; $('dl_pct').value = plan.pct; $('dl_notes').value = '';
+    $('dl_cancel').hidden = true; $('dl_del').hidden = true; $('dl_del').textContent = 'Delete'; delete $('dl_del').dataset.armed;
+    syncDealForm();
+  }
+  function syncDealForm(){
+    var t = $('dl_type').value;
+    $('dl_value').closest('label').hidden = t !== 'new';
+    $('dl_comm').textContent = money(num($('dl_cash').value) * num($('dl_pct').value) / 100);
+  }
+  function editDeal(id){
+    var dl = deals[id]; if (!dl) return; editing = id; $('dealFormTitle').textContent = 'Edit: ' + (dl.name || 'deal');
+    $('dl_type').value = dl.type || 'new'; $('dl_date').value = dl.date; $('dl_name').value = dl.name || ''; $('dl_src').value = dl.source || 'provided';
+    $('dl_program').value = dl.program || ''; $('dl_value').value = dl.value || ''; $('dl_cash').value = dl.cash || ''; $('dl_pct').value = dl.pct != null ? dl.pct : plan.pct; $('dl_notes').value = dl.notes || '';
+    $('dl_cancel').hidden = false; $('dl_del').hidden = false; syncDealForm(); $('dealForm').scrollIntoView({ block:'start', behavior:'smooth' });
+  }
+  function renderDeals(){
+    var list = Object.keys(deals).map(function(id){ return Object.assign({ id:id }, deals[id]); }).filter(function(x){ return x.date; })
+      .sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    var t = todayIso(), owed = {};
+    list.forEach(function(dl){ var p = period(dl.date); if (p.due >= t){ owed[p.due] = (owed[p.due] || 0) + commOf(dl); } });
+    var dueKeys = Object.keys(owed).sort();
+    $('upcoming').innerHTML = dueKeys.length ? '<div class="tiles">' + dueKeys.slice(0,2).map(function(k){ return '<div class="tile"><b>'+esc(money(owed[k]))+'</b><span>Commission due '+esc(nice(k))+'</span></div>'; }).join('') + '</div>' : '';
+    if (!list.length){ $('dealList').innerHTML = '<div class="empty">No deals yet. When you close a sale or a payment comes in, log it above with the cash collected. Your commission and pay dates fill in here.</div>'; return; }
+    var groups = [], cur = null;
+    list.forEach(function(dl){ var p = period(dl.date); if (!cur || cur.key !== p.key){ cur = { key:p.key, p:p, items:[] }; groups.push(cur); } cur.items.push(dl); });
+    var TYPE = { 'new':'New sale', payment:'Payment', deposit:'Deposit' };
+    $('dealList').innerHTML = groups.map(function(g){
+      var c = g.items.reduce(function(n,x){ return n + commOf(x); }, 0), cash = g.items.reduce(function(n,x){ return n + num(x.cash); }, 0);
+      return '<div class="period"><div class="period-head"><b>'+esc(g.p.label)+'</b><span>Cash '+esc(money(cash))+' · commission '+esc(money(c))+' · paid '+esc(nice(g.p.due))+'</span></div>'
+        + g.items.map(function(dl){ var s = SOURCES.find(function(x){ return x[0] === dl.source; });
+          return '<button type="button" class="deal" data-deal="'+esc(dl.id)+'"><span class="who">'+esc(dl.name || 'No name')+'</span><span class="amt">'+esc(money(commOf(dl)))+'<small>commission</small></span>'
+            + '<span class="sub">'+esc(TYPE[dl.type] || 'Sale')+' · '+esc(nice(dl.date))+(dl.program ? ' · '+esc(dl.program) : '')+(s ? ' · '+esc(s[1]) : '')
+            + ' · cash '+esc(money(num(dl.cash)))+(dl.type === 'new' && num(dl.value) ? ' of '+esc(money(num(dl.value))) : '')+' at '+esc(num(dl.pct))+'%'+(dl.notes ? ' · '+esc(dl.notes) : '')+'</span></button>';
+        }).join('') + '</div>';
+    }).join('');
+  }
+
+  // ---------- month ----------
+  function renderMonth(){
+    var t = monthTotals(), tot = t.tot, rt = rates(tot), mm = monthMoney(), r = t.r;
+    var rpa = tot.held ? mm.revenue / tot.held : 0;
+    $('money').innerHTML = [[money(mm.comm),'Commission earned'],[money(mm.cash),'Cash collected'],[money(mm.revenue),'Program value sold'],[mm.newSales+(mm.deposits ? ' + '+mm.deposits+' dep.' : ''),'New sales'],[tot.held ? money(rpa) : '–','Revenue per call held (RPA)']]
+      .map(function(x){ return '<div class="tile"><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>'; }).join('');
+    var rows = [['dials','Dials'],['live','Live convos'],['booked','Booked'],['held','Held'],['offers','Offers'],['closed','Closes']];
+    var max = Math.max(1, tot.dials, tot.live, tot.booked);
+    var between = { live:['Pick-up', tot.dials ? tot.live/tot.dials : NaN], booked:['Booked', tot.live ? tot.booked/tot.live : NaN], held:['Show', (tot.held+tot.noshow) ? tot.held/(tot.held+tot.noshow) : NaN], offers:['Offer', tot.held ? tot.offers/tot.held : NaN], closed:['Close', tot.held ? tot.closed/tot.held : NaN] };
+    $('funnel').innerHTML = rows.map(function(row, i){
+      var html = '<div class="fn"><span>'+row[1]+'</span><div class="track"><i style="width:'+(tot[row[0]]/max*100)+'%"></i></div><em>'+tot[row[0]]+'</em></div>';
+      var next = rows[i+1]; if (next){ var b = between[next[0]]; html += '<div class="rate">↓ '+b[0]+' rate '+pct(b[1])+(next[0]==='closed' ? ' of calls held' : '')+'</div>'; }
+      return html;
+    }).join('') + '<div class="note" style="margin:4px 0 0">No-shows this month: '+tot.noshow+' · Follow-ups set: '+tot.followups+'</div>';
+    var sm = stallTotals(), sTot = PHASES.reduce(function(n,ph){ return n + sm[ph[0]]; }, 0), sMax = Math.max(1, Math.max.apply(null, PHASES.map(function(ph){ return sm[ph[0]]; })));
+    var top = topStall(sm);
+    $('stallMonth').innerHTML = sTot ? PHASES.map(function(ph){
+        return '<div class="fn"><span>'+esc(ph[1])+'</span><div class="track"><i style="width:'+(sm[ph[0]]/sMax*100)+'%"></i></div><em>'+sm[ph[0]]+'</em></div>'; }).join('')
+      + '<div class="note" style="margin:4px 0 0"><b style="color:var(--ink)">Most lost at '+esc(top[1])+'.</b> '+esc(top[2])+' Try: '+esc(top[3])+'</div>'
+      + '<div class="note" style="margin:2px 0 0">Practice days this month: '+practiceDays()+'</div>'
+      : '<div class="note" style="margin:0">Nothing logged yet. On Today, tap the phase each lost call stalled at. After 10 or so, the pattern shows here. Practice days this month: '+practiceDays()+'</div>';
+    var wd = workdaysIn(r.y, r.m, new Date().getDate());
+    function bRow(label, actual, target, fmt, higher){
+      var ok = actual >= target, near = actual >= target*0.8;
+      var chip = !isFinite(actual) ? '<span class="chip mute">No data yet</span>' : ok ? '<span class="chip good">On target</span>' : near ? '<span class="chip warn">Close</span>' : '<span class="chip bad">Below</span>';
+      return '<tr><td>'+label+'</td><td>'+(isFinite(actual) ? fmt(actual) : '–')+'</td><td>'+fmt(target)+'</td><td>'+chip+'</td></tr>'; }
+    var n = function(x){ return Math.round(x).toLocaleString('en-GB'); }, p = function(x){ return Math.round(x*100)+'%'; };
+    $('bench').innerHTML = '<thead><tr><th>Measure</th><th>You so far</th><th>Target so far</th><th></th></tr></thead><tbody>'
+      + bRow('Dials (150 a day)', tot.dials, TARGETS.dials*wd, n)
+      + bRow('Live conversations (12 a day)', tot.live, TARGETS.live*wd, n)
+      + bRow('Calls booked (3 a day)', tot.booked, TARGETS.booked*wd, n)
+      + bRow('Follow-ups set (5 a day)', tot.followups, TARGETS.followups*wd, n)
+      + bRow('Show rate (70%+)', (tot.held+tot.noshow) ? tot.held/(tot.held+tot.noshow) : NaN, 0.7, p)
+      + bRow('Close rate (20–30%)', tot.held ? tot.closed/tot.held : NaN, 0.2, p)
+      + '</tbody>';
+    var head = '<thead><tr><th>Source</th><th>Dials</th><th>Live</th><th>Booked</th><th>Held</th><th>Closes</th><th>Commission</th><th>Close rate</th></tr></thead>';
+    var commBy = {}; Object.keys(deals).forEach(function(id){ var dl = deals[id]; if (dl.date >= r.start && dl.date <= r.end) commBy[dl.source] = (commBy[dl.source] || 0) + commOf(dl); });
+    $('bySource').innerHTML = head + '<tbody>' + SOURCES.map(function(s){ var v = t.by[s[0]];
+      return '<tr><td>'+esc(s[1])+'</td><td>'+v.dials+'</td><td>'+v.live+'</td><td>'+v.booked+'</td><td>'+v.held+'</td><td>'+v.closed+'</td><td>'+esc(money(commBy[s[0]] || 0))+'</td><td>'+(v.held ? pct(v.closed/v.held) : '–')+'</td></tr>'; }).join('')
+      + '</tbody><tfoot><tr><td>Total</td><td>'+tot.dials+'</td><td>'+tot.live+'</td><td>'+tot.booked+'</td><td>'+tot.held+'</td><td>'+tot.closed+'</td><td>'+esc(money(mm.comm))+'</td><td>'+(tot.held ? pct(tot.closed/tot.held) : '–')+'</td></tr></tfoot>';
+    var active = SOURCES.filter(function(s){ var v = t.by[s[0]]; return STAGES.some(function(st){ return v[st[0]] > 0; }); }).length;
+    $('diversity').innerHTML = active >= 3 ? '<span class="chip good">'+active+' sources active</span> Good spread.' : '<span class="chip warn">'+active+' source'+(active===1?'':'s')+' active</span> Aim for 3–4. Referrals and CRM follow-up are the quickest to add.';
+  }
+
+  // ---------- plan ----------
+  var PLAN_FIELDS = { p_goal:'goal', p_aov:'aov', p_pct:'pct', p_coll:'coll', p_inClose:'inClose', p_show:'show', p_len:'len', p_outClose:'outClose', p_pick:'pick', p_p2p:'p2p' };
+  function fillPlanForm(){ Object.keys(PLAN_FIELDS).forEach(function(id){ $(id).value = plan[PLAN_FIELDS[id]]; }); $('p_cur').value = plan.currency; $('p_days').value = String(plan.daysPerWeek); }
+  function renderPlan(){
+    var t = monthTotals(), tot = t.tot, rt = rates(tot), r = t.r;
+    $('p_year').textContent = money(num(plan.goal)*12) + ' a year';
+    var perSale = num(plan.aov) * num(plan.coll)/100 * num(plan.pct)/100, goal = num(plan.goal);
+    var sales = perSale ? goal / perSale : 0, wd = workdaysIn(r.y, r.m) || 1, weeks = wd / plan.daysPerWeek;
+    $('perSale').textContent = perSale ? 'You earn about '+money(perSale)+' per sale, so the goal takes '+Math.ceil(sales)+' sales a month.' : 'Add your sale value and commission % to see the targets.';
+    function v(x){ return x.real ? '<b title="Your real rate this month">'+pct(x.v)+'</b>' : pct(x.v); }
+    function row(label, val){ return '<div class="row"><span>'+label+'</span><b>'+val+'</b></div>'; }
+    var held = sales / rt.close.v, booked = held / rt.show.v, hours = held * num(plan.len) / 60;
+    $('inbound').innerHTML = '<div class="note" style="margin:0 0 6px">Rates in use: close '+v(rt.close)+' · show '+v(rt.show)+'</div>'
+      + row('Sales needed a month', Math.ceil(sales)) + row('Calls held a month', Math.ceil(held)) + row('Calls booked a month', Math.ceil(booked))
+      + row('Calls booked a day', (booked/wd).toFixed(1)) + row('Hours on calls a week', (hours/weeks).toFixed(1));
+    var pitches = sales / rt.outClose.v, pickups = pitches / rt.p2p.v, dials = pickups / rt.pick.v;
+    $('outbound').innerHTML = '<div class="note" style="margin:0 0 6px">Rates in use: close '+v(rt.outClose)+' · pick-up '+v(rt.pick)+' · pick-up to pitch '+v(rt.p2p)+'</div>'
+      + row('Pitches a month', Math.ceil(pitches)) + row('Pick-ups a month', Math.ceil(pickups)) + row('Dials a month', Math.ceil(dials).toLocaleString('en-GB'))
+      + row('Dials a week', Math.ceil(dials/weeks)) + row('Dials a day', Math.ceil(dials/wd));
+    // Matt's hierarchy of problem solving, in his order.
+    var showR = (tot.held+tot.noshow) >= 5 ? tot.held/(tot.held+tot.noshow) : NaN, pickR = tot.dials >= 50 ? tot.live/tot.dials : NaN, closeR = tot.held >= 5 ? tot.closed/tot.held : NaN;
+    var steps = [
+      ['Increase pick-up rate', isFinite(pickR) ? pct(pickR)+' now · aim 12%+' : 'Needs 50+ dials logged', isFinite(pickR) ? pickR >= 0.12 : null],
+      ['Fix show rate', isFinite(showR) ? pct(showR)+' now · aim 70%+' : 'Needs 5+ booked calls logged', isFinite(showR) ? showR >= 0.7 : null],
+      ['Raise average order value', money(num(plan.aov))+' average sale · sell the full program, fewer discounts', null],
+      ['Shorten calls (90 → 60 min)', num(plan.len)+' min calls now', num(plan.len) <= 60],
+      ['Fix close rate', (isFinite(closeR) ? pct(closeR)+' now · aim 20–30%' : 'Needs 5+ calls held logged') + (topStall(stallTotals()) ? ' · most calls stall at '+topStall(stallTotals())[1] : ''), isFinite(closeR) ? closeR >= 0.2 : null]
+    ];
+    var firstBad = steps.findIndex(function(s){ return s[2] === false; });
+    $('fix').innerHTML = steps.map(function(s, i){
+      var chip = s[2] === true ? '<span class="chip good">On target</span>' : s[2] === false ? '<span class="chip bad">'+(i === firstBad ? 'Fix this first' : 'Below')+'</span>' : '<span class="chip mute">Check</span>';
+      return '<li class="'+(i === firstBad ? 'first' : '')+'"><div><div class="nm">'+(i+1)+'. '+esc(s[0])+'</div><div class="meta">'+esc(s[1])+'</div></div>'+chip+'</li>';
+    }).join('');
+    var li = function(b, t){ return '<li><b>'+esc(b)+'</b><span>'+esc(t)+'</span></li>'; };
+    $('flowList').innerHTML = PHASES.slice(0,5).map(function(ph){ return li(ph[1], ph[2]+' '+ph[3]); }).join('')
+      + li('Consequence (light)', 'One question, then stay quiet: "What if nothing changes over the next 6 months?" Respect a real "not now".')
+      + li(PHASES[5][1], PHASES[5][2]+' '+PHASES[5][3])
+      + li('Close', '"Do you feel like this could be the answer for you? Why?" Then explain the next step clearly. Money: '+PHASES[6][3]+' Partner: '+PHASES[7][3]);
+    var closes = tot.closed;
+    $('split').innerHTML = SOURCES.map(function(s){
+      var target = num((plan.split||{})[s[0]]), actual = closes ? t.by[s[0]].closed/closes*100 : 0;
+      return '<div class="row"><span>'+esc(s[1])+'</span><div class="dual" title="Actual '+Math.round(actual)+'%, target '+target+'%"><i style="width:'+actual+'%"></i><u style="left:calc('+Math.min(100,target)+'% - 1px)"></u></div>'
+        + '<input id="sp_'+s[0]+'" data-split="'+s[0]+'" type="number" min="0" max="100" inputmode="numeric" value="'+target+'" aria-label="Target % for '+esc(s[1])+'"></div>';
+    }).join('') + '<p class="note" style="margin:4px 0 0">Bar: share of this month’s closes. Line: your target. Targets add up to '+SOURCES.reduce(function(n,s){ return n + num((plan.split||{})[s[0]]); },0)+'%.</p>';
+  }
+
+  // ---------- views ----------
+  var VIEWS = ['today','deals','month','plan'];
+  function show(v){
+    if (VIEWS.indexOf(v) < 0) v = 'today'; view = v;
+    VIEWS.forEach(function(x){ $('v-'+x).hidden = x !== v; });
+    document.querySelectorAll('nav.tabs a').forEach(function(a){ if (a.dataset.view === v) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+    renderAll();
+  }
+  function renderAll(){ renderHeader(); if (view === 'today') renderToday(); if (view === 'deals') renderDeals(); if (view === 'month') renderMonth(); if (view === 'plan') renderPlan(); }
+
+  // ---------- events ----------
+  $('srcs').addEventListener('click', function(e){ var b = e.target.closest('[data-src]'); if (!b) return; src = b.dataset.src; renderToday(); });
+  $('stages').addEventListener('click', function(e){
+    var inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]'); if (!inc && !dec) return;
+    var k = (inc || dec).dataset[inc ? 'inc' : 'dec'], el = $('in_'+k), v = Math.max(0, num(el.value) + (inc ? 1 : -1));
+    el.value = v || ''; setVal(k, v);
+  });
+  $('stages').addEventListener('input', function(e){ var k = e.target.dataset.set; if (k) setVal(k, e.target.value); });
+  $('stall').addEventListener('click', function(e){
+    var inc = e.target.closest('[data-sinc]'), dec = e.target.closest('[data-sdec]'); if (!inc && !dec) return;
+    var k = (inc || dec).dataset[inc ? 'sinc' : 'sdec'], el = $('st_'+k), v = Math.max(0, num(el.value) + (inc ? 1 : -1));
+    el.value = v || ''; setStall(k, v);
+  });
+  $('stall').addEventListener('input', function(e){ var k = e.target.dataset.sset; if (k) setStall(k, e.target.value); });
+  $('practice').addEventListener('change', function(){ var on = this.checked; setDayField(function(doc){ doc.practice = on; });
+    var sk = streak(); $('streak').textContent = sk ? sk+'-day streak' : 'No streak yet'; $('streak').className = 'chip '+(sk >= 3 ? 'good' : 'mute'); });
+  function moveDay(n){ var d = new Date(($('day').value || todayIso())+'T12:00:00'); d.setDate(d.getDate()+n); $('day').value = iso(d); renderToday(); }
+  $('prevDay').onclick = function(){ moveDay(-1); }; $('nextDay').onclick = function(){ moveDay(1); };
+  $('toToday').onclick = function(){ $('day').value = todayIso(); renderToday(); };
+  $('day').addEventListener('change', renderToday);
+
+  ['dl_type','dl_cash','dl_pct'].forEach(function(id){ $(id).addEventListener('input', syncDealForm); });
+  $('dl_save').onclick = function(){
+    var name = $('dl_name').value.trim(), date = $('dl_date').value, cash = num($('dl_cash').value);
+    if (!name){ $('dealStatus').textContent = 'Add the client’s name.'; $('dl_name').focus(); return; }
+    if (!date){ $('dealStatus').textContent = 'Pick the date the money came in.'; return; }
+    var id = editing || ('d' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+    deals[id] = { date:date, name:name, type:$('dl_type').value, source:$('dl_src').value, program:$('dl_program').value.trim(),
+      value: $('dl_type').value === 'new' ? num($('dl_value').value) : 0, cash:cash, pct:num($('dl_pct').value), notes:$('dl_notes').value.trim() };
+    queueDeal(id); resetDealForm(); renderHeader(); renderDeals();
+  };
+  $('dl_cancel').onclick = function(){ resetDealForm(); $('dealStatus').textContent = ''; };
+  $('dl_del').onclick = function(){
+    if (!editing) return;
+    if (!this.dataset.armed){ this.dataset.armed = '1'; this.textContent = 'Tap again to delete'; return; }
+    var id = editing; delete deals[id]; queueDeal(id); resetDealForm(); renderHeader(); renderDeals();
+  };
+  $('dealList').addEventListener('click', function(e){ var b = e.target.closest('[data-deal]'); if (b) editDeal(b.dataset.deal); });
+
+  Object.keys(PLAN_FIELDS).forEach(function(id){
+    $(id).addEventListener('input', function(){ var k = PLAN_FIELDS[id], v = num(this.value);
+      if (['coll','inClose','show','outClose','pick','p2p'].indexOf(k) >= 0) v = Math.min(100, v || 1);
+      plan[k] = v; savePlan(); renderHeader(); renderPlan(); });
+  });
+  $('p_cur').addEventListener('change', function(){ plan.currency = this.value; savePlan(); renderAll(); });
+  $('p_days').addEventListener('change', function(){ plan.daysPerWeek = Number(this.value); savePlan(); renderAll(); });
+  $('split').addEventListener('input', function(e){ var k = e.target.dataset.split; if (!k) return; plan.split = plan.split || {}; plan.split[k] = num(e.target.value); savePlan(); });
+  $('split').addEventListener('change', function(){ renderPlan(); });
+  window.addEventListener('hashchange', function(){ show(location.hash.slice(1)); });
+
+  // ---------- start ----------
+  $('day').value = todayIso(); fillSrcSelect(); fillPlanForm(); resetDealForm();
+  show(location.hash.slice(1) || 'today');
+
+  var note = $('loadNote');
+  function warn(t){ note.hidden = false; note.className = 'note warn'; note.textContent = t; }
+  function goLocal(){
+    local = true; db = null; loadLocal(); fillPlanForm(); resetDealForm(); renderAll(); $('backup').hidden = false;
+    try { localStorage.setItem(LKEY+'_t','1'); localStorage.removeItem(LKEY+'_t'); } catch (e) { warn('This browser is blocking storage, so numbers won’t be kept after you close the page.'); }
+  }
+  function connect(){
+    if (!window.claude || !window.claude.use){ goLocal(); return; }
+    window.claude.use('db').then(function(d){
+      if (!d){ goLocal(); return; }
+      db = d;
+      var timer = setTimeout(function(){ warn('Your saved numbers can’t be reached yet. Anything you enter now will save once the connection is back.'); }, 10000);
+      var first = { days:false, deals:false, plan:false };
+      function loaded(k, snap){ first[k] = first[k] || !snap.metadata.fromCache; if (first.days && first.deals && first.plan){ clearTimeout(timer); note.hidden = true; } }
+      function typing(){ var a = document.activeElement; return a && /^(in_|st_|p_|sp_|dl_)/.test(a.id || ''); }
+      db.collection('days').onSnapshot(function(snap){
+        snap.docs.forEach(function(doc){ var x = doc.data(); if (x && !pending['d:'+doc.id]) days[doc.id] = clone(x); });
+        snap.docChanges().forEach(function(c){ if (c.type === 'removed' && !pending['d:'+c.doc.id]) delete days[c.doc.id]; });
+        loaded('days', snap); if (!typing()) renderAll(); else renderHeader();
+      }, function(){ clearTimeout(timer); warn('Your saved days couldn’t be loaded. Reopen the tracker to try again.'); });
+      db.collection('deals').onSnapshot(function(snap){
+        snap.docs.forEach(function(doc){ var x = doc.data(); if (x && !pending['x:'+doc.id]) deals[doc.id] = clone(x); });
+        snap.docChanges().forEach(function(c){ if (c.type === 'removed' && !pending['x:'+c.doc.id]) delete deals[c.doc.id]; });
+        loaded('deals', snap); if (!typing()) renderAll(); else renderHeader();
+      }, function(){ clearTimeout(timer); warn('Your saved deals couldn’t be loaded. Reopen the tracker to try again.'); });
+      db.doc('settings/plan').onSnapshot(function(snap){
+        if (snap.exists && !pending.plan){ plan = mergePlan(snap.data()); if (!typing()) { fillPlanForm(); if (!editing) $('dl_pct').value = plan.pct; } }
+        loaded('plan', snap); renderAll();
+      }, function(){});
+    });
+  }
+  connect();
+
+  // ---------- backup (standalone page) ----------
+  $('bkDown').onclick = function(){
+    var blob = new Blob([JSON.stringify({ app:'remote-sales-tracker', saved:new Date().toISOString(), days:days, deals:deals, plan:plan }, null, 1)], { type:'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'remote-sales-tracker-backup-'+todayIso()+'.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    $('bkStatus').textContent = 'Backup downloaded';
+  };
+  $('bkUp').onchange = function(){
+    var f = this.files && this.files[0]; if (!f) return; var rd = new FileReader();
+    rd.onload = function(){ try { var x = JSON.parse(rd.result); if (!x || !x.days) throw 0;
+        days = x.days || {}; deals = x.deals || {}; plan = mergePlan(x.plan); saveLocal(); fillPlanForm(); resetDealForm(); renderAll();
+        $('bkStatus').textContent = 'Restored '+Object.keys(days).length+' days and '+Object.keys(deals).length+' deals';
+      } catch (e) { $('bkStatus').textContent = 'That file isn’t a tracker backup. Choose the .json file you downloaded.'; } };
+    rd.readAsText(f); this.value = '';
+  };
+})();
+</script>
+
+
+</body>
+</html>
